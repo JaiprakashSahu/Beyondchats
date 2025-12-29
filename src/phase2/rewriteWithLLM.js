@@ -1,5 +1,16 @@
 const axios = require('axios');
 
+const normalizeContent = (content) => {
+    return content
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+};
+
+const stripExistingReferences = (content) => {
+    return content.replace(/References[\s\S]*$/i, '').trim();
+};
+
 const rewriteWithLLM = async (originalArticle, referenceArticles) => {
     const apiKey = process.env.GROQ_API_KEY;
 
@@ -21,7 +32,8 @@ Guidelines:
 - Keep the core topic and key information intact
 - Make it engaging and informative
 - Optimize for SEO without keyword stuffing
-- Use short paragraphs for better readability`;
+- Use short paragraphs for better readability
+- Do NOT use markdown bold (**text**) formatting`;
 
     const userPrompt = `Please rewrite the following article to make it more engaging, well-structured, and SEO-friendly. Study the reference articles for formatting style and structure inspiration, but create completely original content.
 
@@ -49,7 +61,9 @@ ${ref2.content.substring(0, 1500)}
 3. Write completely original content - do not copy from references
 4. Improve the title for better SEO
 5. Use proper markdown formatting (## for H2, ### for H3, bullet points, etc.)
-6. Make it comprehensive and valuable to readers
+6. Do NOT use bold (**text**) formatting
+7. Make it comprehensive and valuable to readers
+8. Do NOT include a References section - it will be added automatically
 
 Please provide your response in the following format:
 TITLE: <improved SEO-friendly title>
@@ -95,13 +109,16 @@ CONTENT:
             newContent = contentMatch[1].trim();
         }
 
+        const normalizedContent = normalizeContent(newContent);
+        const contentWithoutRefs = stripExistingReferences(normalizedContent);
+
         const references = referenceArticles.map((ref) => ref.url).filter(Boolean);
 
-        const referencesSection = `\n\n---\n\n## References\n\n${references
-            .map((url, index) => `${index + 1}. ${url}`)
-            .join('\n')}`;
+        const finalContent = `${contentWithoutRefs}
 
-        const finalContent = newContent + referencesSection;
+References:
+1. ${references[0] || ''}
+2. ${references[1] || ''}`.trim();
 
         console.log(`      ✅ Groq LLM rewrite complete (${finalContent.length} characters)`);
 
