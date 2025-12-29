@@ -5,7 +5,7 @@ const Article = require('../models/Article');
 // @access  Public
 const createArticle = async (req, res) => {
     try {
-        const { title, content, sourceUrl, references } = req.body;
+        const { title, content, sourceUrl, isUpdated, references } = req.body;
 
         // Validate required fields
         if (!title || !content || !sourceUrl) {
@@ -28,6 +28,7 @@ const createArticle = async (req, res) => {
             title,
             content,
             sourceUrl,
+            isUpdated: isUpdated === true,
             references: references || [],
         });
 
