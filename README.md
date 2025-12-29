@@ -1,10 +1,14 @@
 # BeyondChats Backend
 
-A Node.js + Express backend that scrapes the 5 oldest articles from the BeyondChats blog and provides full CRUD REST APIs for article management.
+A Node.js + Express backend that scrapes articles from the BeyondChats blog, enhances them using AI, and provides full CRUD REST APIs for article management.
 
 ## 📋 Project Overview
 
-This project automatically scrapes articles from [https://beyondchats.com/blogs/](https://beyondchats.com/blogs/), navigates to the last pagination page to find the oldest articles, extracts their full content, and stores them in MongoDB. It also exposes RESTful APIs for complete article management.
+This project consists of two phases:
+
+**Phase 1:** Automatically scrapes the 5 oldest articles from [https://beyondchats.com/blogs/](https://beyondchats.com/blogs/), navigates to the last pagination page, extracts their full content, and stores them in MongoDB.
+
+**Phase 2:** Enhances scraped articles by searching Google for top-ranking similar content, scraping reference articles, and using an LLM to rewrite articles with improved structure, SEO, and formatting.
 
 ## 🛠️ Tech Stack
 
@@ -15,6 +19,8 @@ This project automatically scrapes articles from [https://beyondchats.com/blogs/
 - **HTML Parser:** Cheerio
 - **Environment:** dotenv
 - **Security:** CORS
+- **Search API:** Serper.dev (Google Search)
+- **AI/LLM:** OpenAI GPT-3.5-turbo
 
 ## 📁 Project Structure
 
@@ -31,10 +37,17 @@ beyondchats-backend/
 │   │   └── articleController.js  # CRUD controller logic
 │   ├── routes/
 │   │   └── articleRoutes.js   # API route definitions
-│   └── scraper/
-│       └── scrapeBeyondChats.js  # Blog scraper module
+│   ├── scraper/
+│   │   └── scrapeBeyondChats.js  # Blog scraper module (Phase 1)
+│   └── phase2/
+│       ├── googleSearch.js       # Google search via Serper API
+│       ├── scrapeExternalArticle.js  # External article scraper
+│       ├── rewriteWithLLM.js     # OpenAI LLM rewriting
+│       └── runPhase2.js          # Phase 2 runner script
 │
 ├── .env                       # Environment variables
+├── .env.example               # Example environment file
+├── .gitignore                 # Git ignore rules
 ├── package.json               # Dependencies and scripts
 └── README.md                  # Documentation
 ```
@@ -88,10 +101,18 @@ beyondchats-backend/
 
 ## 🔧 Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PORT` | Server port number | `5000` |
-| `MONGODB_URI` | MongoDB connection string | `mongodb://localhost:27017/beyondchats` |
+| Variable | Description | Required For |
+|----------|-------------|--------------|
+| `PORT` | Server port number (default: 5000) | Phase 1 |
+| `MONGODB_URI` | MongoDB connection string | Phase 1 |
+| `GOOGLE_SEARCH_API_KEY` | Serper.dev API key | Phase 2 |
+| `OPENAI_API_KEY` | OpenAI API key | Phase 2 |
+| `BACKEND_API_BASE_URL` | API base URL (default: http://localhost:5000/api) | Phase 2 |
+
+### Getting API Keys
+
+1. **Serper.dev (Google Search):** Sign up at [https://serper.dev/](https://serper.dev/) to get your API key
+2. **OpenAI:** Get your API key from [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)
 
 ## 📡 API Endpoints
 
@@ -190,6 +211,87 @@ Article {
   createdAt: Date (auto),
   updatedAt: Date (auto)
 }
+```
+
+## 🤖 Phase 2: Article Enhancement Pipeline
+
+Phase 2 enhances the scraped articles by researching top-ranking content and using AI to rewrite them.
+
+### Running Phase 2
+
+1. **Ensure Phase 1 is complete** (server has run and scraped articles exist in MongoDB)
+
+2. **Configure API keys** in your `.env` file:
+   ```env
+   GOOGLE_SEARCH_API_KEY=your_serper_api_key_here
+   OPENAI_API_KEY=your_openai_api_key_here
+   BACKEND_API_BASE_URL=http://localhost:5000/api
+   ```
+
+3. **Start the server** (if not already running):
+   ```bash
+   npm run dev
+   ```
+
+4. **Run Phase 2 script:**
+   ```bash
+   node src/phase2/runPhase2.js
+   ```
+
+### Phase 2 Workflow
+
+1. **Fetch Articles:** Gets all articles from `/api/articles` where `isUpdated = false`
+
+2. **Google Search:** For each article title, searches Google via Serper.dev API
+
+3. **Filter Results:**
+   - Excludes beyondchats.com URLs
+   - Excludes social media, Wikipedia, video platforms
+   - Selects top 2 valid blog/article URLs
+
+4. **Scrape References:** Extracts main content from each reference article:
+   - Removes navigation, ads, footer, sidebars
+   - Preserves headings and paragraph structure
+   - Cleans whitespace
+
+5. **LLM Rewrite:** Sends to OpenAI GPT-3.5-turbo:
+   - Improves clarity and structure
+   - Matches formatting style of top-ranking articles
+   - Ensures originality (no copying)
+   - Generates SEO-optimized title
+
+6. **Publish:** Creates new article via `POST /api/articles`:
+   - `isUpdated = true`
+   - `references = [url1, url2]`
+   - Appends references section at bottom
+
+### Phase 2 Output
+
+The script provides detailed logging:
+```
+╔════════════════════════════════════════════════════════════╗
+║           PHASE 2: Article Enhancement Pipeline            ║
+╚════════════════════════════════════════════════════════════╝
+
+📝 Processing Article 1/5
+   Title: Introduction to Chatbots
+   
+   Step 1: Search Google for related articles...
+   ✅ Found 2 valid external URLs
+   
+   Step 2: Scraping external articles...
+   ✅ Scraped 3500 characters
+   
+   Step 3: Rewriting with LLM...
+   ✅ LLM rewrite complete
+   
+   Step 4: Publishing rewritten article...
+   ✅ Successfully published with ID: 507f1f77bcf86cd799439011
+
+╔════════════════════════════════════════════════════════════╗
+║                    PHASE 2 COMPLETE                        ║
+║   Succeeded: 5                                             ║
+╚════════════════════════════════════════════════════════════╝
 ```
 
 ## 📝 License
