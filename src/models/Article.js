@@ -31,9 +31,6 @@ const articleSchema = new mongoose.Schema(
     }
 );
 
-// Index for faster lookups by sourceUrl
-articleSchema.index({ sourceUrl: 1 });
-
 const Article = mongoose.model('Article', articleSchema);
 
 module.exports = Article;

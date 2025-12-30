@@ -54,12 +54,23 @@ const publishRewrittenArticle = async (articleData) => {
     }
 };
 
-const processArticle = async (article, index, total) => {
+const processArticle = async (article, index, total, existingUpdatedUrls) => {
     console.log(`\n${'═'.repeat(60)}`);
     console.log(`📝 Processing Article ${index + 1}/${total}`);
     console.log(`   Title: ${article.title}`);
     console.log(`   Source: ${article.sourceUrl}`);
     console.log('═'.repeat(60));
+
+    // Check if updated article already exists for this original
+    const baseSourceUrl = article.sourceUrl.replace(/#rewritten.*$/, '');
+    const hasUpdatedVersion = existingUpdatedUrls.some(url =>
+        url.startsWith(baseSourceUrl + '#rewritten')
+    );
+
+    if (hasUpdatedVersion) {
+        console.log(`\n   ⏭️ Updated article already exists for this original. Skipping...`);
+        return { success: false, reason: 'Updated version already exists' };
+    }
 
     try {
         console.log('\n   Step 1: Search Google for related articles...');
@@ -136,9 +147,15 @@ const runPhase2 = async () => {
     try {
         const allArticles = await fetchAllArticles();
 
+        // Get existing updated article sourceUrls
+        const existingUpdatedUrls = allArticles
+            .filter(a => a.isUpdated === true)
+            .map(a => a.sourceUrl);
+
         const articlesToProcess = allArticles.filter((a) => a.isUpdated === false);
 
-        console.log(`\n📊 Articles to process: ${articlesToProcess.length} (isUpdated = false)`);
+        console.log(`\n📊 Original articles: ${articlesToProcess.length}`);
+        console.log(`📊 Existing updated articles: ${existingUpdatedUrls.length}`);
 
         if (articlesToProcess.length === 0) {
             console.log('\n✅ No articles need processing. All articles are already updated.');
@@ -156,11 +173,13 @@ const runPhase2 = async () => {
             const article = articlesToProcess[i];
             results.processed++;
 
-            const result = await processArticle(article, i, articlesToProcess.length);
+            const result = await processArticle(article, i, articlesToProcess.length, existingUpdatedUrls);
 
             if (result.success) {
                 results.succeeded++;
-            } else if (result.reason === 'Already exists or publish failed') {
+                // Add to existing URLs to prevent duplicates in same run
+                existingUpdatedUrls.push(`${article.sourceUrl}#rewritten`);
+            } else if (result.reason === 'Updated version already exists') {
                 results.skipped++;
             } else {
                 results.failed++;

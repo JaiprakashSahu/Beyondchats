@@ -20,7 +20,7 @@ This project consists of two phases:
 - **Environment:** dotenv
 - **Security:** CORS
 - **Search API:** Serper.dev (Google Search)
-- **AI/LLM:** OpenAI GPT-3.5-turbo
+- **AI/LLM:** Groq (Llama 3.1 8B)
 
 ## 📁 Project Structure
 
@@ -42,10 +42,10 @@ beyondchats-backend/
 │   └── phase2/
 │       ├── googleSearch.js       # Google search via Serper API
 │       ├── scrapeExternalArticle.js  # External article scraper
-│       ├── rewriteWithLLM.js     # OpenAI LLM rewriting
+│       ├── rewriteWithLLM.js     # Groq LLM rewriting (LLaMA 3.1 8B)
 │       └── runPhase2.js          # Phase 2 runner script
 │
-├── .env                       # Environment variables
+├── .env                       # Environment variables (excluded from git)
 ├── .env.example               # Example environment file
 ├── .gitignore                 # Git ignore rules
 ├── package.json               # Dependencies and scripts
@@ -106,13 +106,13 @@ beyondchats-backend/
 | `PORT` | Server port number (default: 5000) | Phase 1 |
 | `MONGODB_URI` | MongoDB connection string | Phase 1 |
 | `GOOGLE_SEARCH_API_KEY` | Serper.dev API key | Phase 2 |
-| `OPENAI_API_KEY` | OpenAI API key | Phase 2 |
+| `GROQ_API_KEY` | Groq API key | Phase 2 |
 | `BACKEND_API_BASE_URL` | API base URL (default: http://localhost:5000/api) | Phase 2 |
 
 ### Getting API Keys
 
 1. **Serper.dev (Google Search):** Sign up at [https://serper.dev/](https://serper.dev/) to get your API key
-2. **OpenAI:** Get your API key from [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+2. **Groq:** Get your API key from [https://console.groq.com/keys](https://console.groq.com/keys)
 
 ## 📡 API Endpoints
 
@@ -224,7 +224,7 @@ Phase 2 enhances the scraped articles by researching top-ranking content and usi
 2. **Configure API keys** in your `.env` file:
    ```env
    GOOGLE_SEARCH_API_KEY=your_serper_api_key_here
-   OPENAI_API_KEY=your_openai_api_key_here
+   GROQ_API_KEY=your_groq_api_key_here
    BACKEND_API_BASE_URL=http://localhost:5000/api
    ```
 
@@ -254,7 +254,7 @@ Phase 2 enhances the scraped articles by researching top-ranking content and usi
    - Preserves headings and paragraph structure
    - Cleans whitespace
 
-5. **LLM Rewrite:** Sends to OpenAI GPT-3.5-turbo:
+5. **LLM Rewrite:** Sends to Groq Llama 3.1 8B:
    - Improves clarity and structure
    - Matches formatting style of top-ranking articles
    - Ensures originality (no copying)
@@ -294,6 +294,15 @@ The script provides detailed logging:
 ╚════════════════════════════════════════════════════════════╝
 ```
 
+### Idempotency
+
+Phase 2 enforces a one-to-one mapping between original and updated articles. Re-running the script does not create duplicate updated articles.
+
+### Notes
+
+- `.env` files are excluded from version control; `.env.example` is provided for reference
+- A duplicate index warning may appear during development due to schema refactoring; it does not affect functionality
+
 ## 📝 License
 
-ISC
+This project is provided for evaluation purposes as part of an internship assignment.
