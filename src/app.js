@@ -8,8 +8,16 @@ const scrapeBeyondChats = require('./scraper/scrapeBeyondChats');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
-app.use(cors());
+// CORS Configuration - Allow all origins for deployment
+app.use(
+    cors({
+        origin: '*',
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization'],
+    })
+);
+
+// Body parser middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -19,14 +27,15 @@ app.use((req, res, next) => {
     next();
 });
 
-// Health check route
+// Health check route - MUST be first
 app.get('/', (req, res) => {
-    res.json({
-        success: true,
-        message: 'BeyondChats Backend API is running',
+    res.status(200).json({
+        status: 'Backend running',
+        message: 'BeyondChats Backend API is operational',
         version: '1.0.0',
         endpoints: {
             articles: '/api/articles',
+            health: '/',
         },
     });
 });
@@ -45,6 +54,7 @@ app.post('/api/scrape', async (req, res) => {
             data: result,
         });
     } catch (error) {
+        console.error('Scrape error:', error.message);
         res.status(500).json({
             success: false,
             message: 'Scraping failed',
@@ -63,41 +73,46 @@ app.use((req, res) => {
 
 // Global error handler
 app.use((err, req, res, next) => {
-    console.error('💥 Server Error:', err);
+    console.error('💥 Server Error:', err.message);
     res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: process.env.NODE_ENV === 'development' ? err.message : undefined,
     });
 });
 
 // Start server
 const startServer = async () => {
-    try {
-        // Connect to MongoDB
-        await connectDB();
+    console.log('\n🚀 Starting BeyondChats Backend...');
+    console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
 
-        // Start Express server
-        app.listen(PORT, () => {
-            console.log(`\n🚀 Server running on http://localhost:${PORT}`);
-            console.log(`📚 API endpoints available at http://localhost:${PORT}/api/articles`);
-            console.log('━'.repeat(50));
-        });
+    // Connect to MongoDB (non-blocking)
+    const dbConnection = await connectDB();
 
-        // Auto-run scraper on server start
-        console.log('\n🔄 Auto-running scraper on server start...');
+    // Start Express server regardless of DB status
+    app.listen(PORT, '0.0.0.0', () => {
+        console.log(`\n✅ Server running on port ${PORT}`);
+        console.log(`📚 API endpoint: /api/articles`);
+        console.log(`❤️ Health check: /`);
+        console.log('━'.repeat(50));
+    });
+
+    // Auto-run scraper (non-blocking, won't crash server)
+    if (dbConnection) {
+        console.log('\n🔄 Auto-running scraper...');
         setTimeout(async () => {
             try {
                 await scrapeBeyondChats();
+                console.log('✅ Initial scraping completed');
             } catch (error) {
-                console.error('❌ Initial scraping failed:', error.message);
-                console.log('   Server will continue running. You can retry via POST /api/scrape');
+                console.error('⚠️ Initial scraping failed:', error.message);
+                console.log('   Server continues running. Retry via POST /api/scrape');
             }
-        }, 2000); // Small delay to ensure server is fully ready
-    } catch (error) {
-        console.error('❌ Failed to start server:', error.message);
-        process.exit(1);
+        }, 3000);
+    } else {
+        console.log('\n⚠️ Scraper skipped - no database connection');
     }
 };
 
-startServer();
+startServer().catch((error) => {
+    console.error('❌ Server startup error:', error.message);
+});
